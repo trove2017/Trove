@@ -79,10 +79,9 @@ public class JGRAPHT_graph
 		return nodeList;
 	}
 	
-	public ArrayList<String> returnAllPaths(String source, String destination, int pathLength)
+	public ArrayList<String> returnAllPaths(String source, String destination, int pathLength, ArrayList<String> nodeList)
 	{
 		AllDirectedPaths<String,edge> allPath=new AllDirectedPaths<String,edge>(bipartiteGraph);
-		ArrayList<String> uniqueNodesInAllPaths=new ArrayList<String>();
 		List<GraphPath<String,edge>> pathList=allPath.getAllPaths(source, destination, true, pathLength);
 		for(int i=0; i<pathList.size(); i++)
 		{
@@ -92,11 +91,11 @@ public class JGRAPHT_graph
 			{
 				String n=vList.get(j);
 				System.out.print(n+",");
-				if(uniqueNodesInAllPaths.contains(n)==false)
-					uniqueNodesInAllPaths.add(n);
+				if(nodeList.contains(n)==false )
+					nodeList.add(n);
 			}
 			System.out.println("");
 		}
-		return uniqueNodesInAllPaths;	
+		return nodeList;	
 	}
 }

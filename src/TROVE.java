@@ -3,6 +3,8 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FileDialog;
 import java.awt.FlowLayout;
+import java.awt.GraphicsDevice;
+import java.awt.GraphicsEnvironment;
 import java.awt.MouseInfo;
 import java.awt.Point;
 import java.awt.Robot;
@@ -123,6 +125,7 @@ public class TROVE extends JDialog{
 	static JMenuItem menuItemActionHighlightDynamics = new JMenuItem();
 	static JMenuItem menuItemActionCheckCombiPredictionAgainstCombiCuration = new JMenuItem();
 	static JMenuItem menuItemActionCheckCombiPredictionAgainstMonoCuration = new JMenuItem();
+	static JMenuItem menuItemOptionFullScreen = new JMenuItem();
 	static JMenuItem menuItemOptionHallmark = new JMenuItem();
 	static JMenuItem menuItemOptionCompound = new JMenuItem();
 	static JMenuItem menuItemOptionKEGGPathway = new JMenuItem();
@@ -246,12 +249,13 @@ public class TROVE extends JDialog{
 	static String DISPLAY_DISEASE_TARGET_NODE = "Display Disease and Target Nodes";
 	static String DISPLAY_DISEASE_NODE = "Display Disease Node";
 	static String DISPLAY_TARGET_NODE = "Display Target Node";
+	static String VIEW_FULLSCREEN = "View Full Screen Toggle";
 	static String VIEW_HALLMARK = "View Hallmark";
 	static String VIEW_HALLMARK_INDUCED = "View Hallmark Induced";
 	static String VIEW_KEGG_ANNOTATED_PATHWAY = "View KEGG-Annotated Pathway";
 	static String CREATE_AND_VIEW_PATHWAY = "Create and View Pathway ";
 	static String VIEW_NODE_PAIR_PATHWAY = "View Node Pair Pathway ";
-	static String VIEW_NODE_PAIR="View Pathway Between Node Pair";
+	static String VIEW_NODE_PAIR="View Pathway Between Node Set";
 	static String VIEW_FEATURE_RESULT = "View Feature Results";
 	static String VIEW_CHARACTERIZATION_RESULT = "View Characterization Results";
 	static String VIEW_DISEASE_NODE = "View Disease Node(s)";
@@ -410,6 +414,9 @@ public class TROVE extends JDialog{
 	static String macFolder="/";
 	static String linuxFolder="/";
 	
+	//fullscreen toggle stuff
+	private boolean IS_FULLSCREEN=false;
+	
 	public TROVE() 
 	{
 		super();
@@ -553,6 +560,8 @@ public class TROVE extends JDialog{
 				editCancerTypeView_actionPerformed(selectedView);
 			if (actionEvent.getActionCommand() == EDIT_HALLMARK_GO_MAPPING)
 				editHallmarkGOMapping_actionPerformed();
+			if (actionEvent.getActionCommand() == VIEW_FULLSCREEN)
+				viewFullScreenToggle_actionPerformed();
 			if (actionEvent.getActionCommand() == VIEW_HALLMARK)
 				viewHallmark_actionPerformed();
 			if (actionEvent.getActionCommand() == VIEW_COMPOUND)
@@ -591,6 +600,46 @@ public class TROVE extends JDialog{
 		}
 	};
 
+	private void viewFullScreenToggle_actionPerformed()
+	{
+		if(IS_FULLSCREEN==true)//switch from fullscreen to non-fullscreen
+		{
+			ingotDialog.setLocation(new Point((SCREENWIDTH-910)/2, (SCREENHEIGHT-FRAMEHEIGHT)/2));
+			ingotDialog.setSize(new Dimension(1120, FRAMEHEIGHT));
+			interactiveGraphPanel.setPreferredSize(new Dimension(GRAPHDISPLAYWIDTH, GRAPHDISPLAYHEIGHT));
+			vertexTabbedPanel.setPreferredSize(new Dimension(LEFTCOLWIDTH, VERTEXTABPANELHEIGHT-30));
+			speciesListScrollPane.setPreferredSize(new Dimension(LEFTCOLWIDTH, RESULTTABPANELHEIGHT));
+			leftColumnPanel.setPreferredSize(new Dimension(LEFTCOLWIDTH+160, FRAMEHEIGHT-100));
+			topRowPanel.setPreferredSize(new Dimension(1120, FRAMEHEIGHT-50));
+			IS_FULLSCREEN=false;
+		}
+		else//switch from non-fullscreen to fullscreen
+		{
+			ingotDialog.setLocation(0,0);
+		    ingotDialog.setSize(SCREENWIDTH, SCREENHEIGHT);
+		    int newDisplayWidth=SCREENWIDTH-LEFTCOLWIDTH-200;
+		    int newDisplayHeight=SCREENHEIGHT;
+		    int newVertexTabPanelHeight=VERTEXTABPANELHEIGHT+150;
+		    int newSpeciesListHeight=SCREENHEIGHT-newVertexTabPanelHeight-300;
+		    int newLeftColHeight=SCREENHEIGHT-200;
+		    interactiveGraphPanel.setPreferredSize(new Dimension(newDisplayWidth, newDisplayHeight));
+		    vertexTabbedPanel.setPreferredSize(new Dimension(LEFTCOLWIDTH, newVertexTabPanelHeight));
+		    speciesListScrollPane.setPreferredSize(new Dimension(LEFTCOLWIDTH, newSpeciesListHeight));
+		    leftColumnPanel.setPreferredSize(new Dimension(LEFTCOLWIDTH+160, newLeftColHeight));
+		    topRowPanel.setPreferredSize(new Dimension(SCREENWIDTH, SCREENHEIGHT-50));
+		    
+			IS_FULLSCREEN=true;
+		}
+		interactiveGraphPanel.revalidate();
+		vertexTabbedPanel.revalidate();
+		speciesListScrollPane.revalidate();
+		leftColumnPanel.revalidate();
+		topRowPanel.revalidate();
+		ingotDialog.revalidate();
+				
+		System.out.println("IS_FULLSCREEN="+IS_FULLSCREEN);
+	}
+	
 	private void editHallmarkGOMapping_actionPerformed()
 	{
 		editHallmarkGOMappingDialog editHallmarkGOMapping=new editHallmarkGOMappingDialog(directory, hallmarkGOMappingFileName);
@@ -3877,6 +3926,9 @@ public class TROVE extends JDialog{
 		/************************************************/
 		menuBarOption.setText("View");
 		/************************************************/
+		menuItemOptionFullScreen.setText(VIEW_FULLSCREEN);
+		menuItemOptionFullScreen.setActionCommand(VIEW_FULLSCREEN);
+		menuItemOptionFullScreen.addActionListener(actionListener);
 		menuItemOptionHallmark.setText(VIEW_HALLMARK);
 		menuItemOptionHallmark.setActionCommand(VIEW_HALLMARK);
 		menuItemOptionHallmark.addActionListener(actionListener);
@@ -3929,6 +3981,7 @@ public class TROVE extends JDialog{
 		menuBarAction.add(menuItemActionComputeTopologicalFeatures);
 		menuBarAction.add(menuItemActionCharacterizeHallmarks);
 		menuBarAction.add(menuItemActionHighlightDynamics);
+		menuBarOption.add(menuItemOptionFullScreen);
 		menuBarOption.add(menuItemOptionHallmark);
 		menuBarOption.add(menuItemOptionNodePairPathway);
 		menuBarOption.add(menuItemOptionCharacterizationResult);
