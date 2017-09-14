@@ -438,17 +438,32 @@ import cz.cvut.fit.krizeji1.multicolour.MultiColourRenderer;
 		  interactiveGraph.writeUnlock();
 	  }
 
+	  public void resizeGraph(JPanel interactiveGraphPanel)
+	  {
+		  interactiveGraph.writeLock();
+		  interactiveApplet.setPreferredSize(interactiveGraphPanel.getPreferredSize());
+		  //interactiveApplet.setSize(interactiveGraphPanel.getPreferredSize());
+		  interactiveGraph.writeUnlock();
+		   
+		  //Refresh the preview and reset the zoom
+		  interactivePreviewController.refreshPreview();
+		  interactiveGraphPanel.repaint();
+		  interactiveTarget.refresh();
+		  interactiveTarget.resetZoom();
+	  }
+	  
 	  public void visualizeGraph(JPanel interactiveGraphPanel)
 	  {
 		  //New Processing target, get the PApplet
 		  //interactiveTarget = (ProcessingTarget) interactivePreviewController.getRenderTarget(RenderTarget.PROCESSING_TARGET);
-		  interactiveGraphPanel.add(interactiveApplet, BorderLayout.CENTER);
 		  interactiveGraph.writeLock();
 		  interactiveApplet.init();
 		  interactiveApplet.setPreferredSize(interactiveGraphPanel.getPreferredSize());
-		  interactiveApplet.setSize(interactiveGraphPanel.getPreferredSize());
+		  //interactiveApplet.setSize(interactiveGraphPanel.getPreferredSize());
 		  interactiveApplet.setLocation(interactiveGraphPanel.getLocation());
 		  interactiveGraph.writeUnlock();
+		  interactiveGraphPanel.add(interactiveApplet, BorderLayout.CENTER);
+			 
 		  //**previewMouse**
 		  /*interactiveApplet.addMouseListener(new MouseAdapter() {
 			@Override 
@@ -485,8 +500,8 @@ import cz.cvut.fit.krizeji1.multicolour.MultiColourRenderer;
 		  interactiveGraphPanel.add(interactiveApplet, BorderLayout.CENTER);
 		  interactiveGraph.writeLock();
 		  interactiveApplet.init();
-		  interactiveApplet.setPreferredSize(interactiveGraphPanel.getPreferredSize());
-		  interactiveApplet.setSize(interactiveGraphPanel.getPreferredSize());
+		  interactiveApplet.setPreferredSize(new Dimension(interactiveGraphPanel.getPreferredSize().width+800, interactiveGraphPanel.getPreferredSize().height));
+		  //interactiveApplet.setSize(interactiveGraphPanel.getPreferredSize());
 		  if(SETLOCATION==true)
 			  interactiveApplet.setLocation(interactiveGraphPanel.getLocation());
 		  interactiveGraph.writeUnlock();
@@ -535,8 +550,12 @@ import cz.cvut.fit.krizeji1.multicolour.MultiColourRenderer;
 				  n1.getNodeData().setSize(10);
 			  else if(nodeSize.compareTo(strConstants.getGephiExtraLarge())==0)
 				  n1.getNodeData().setSize(20);
-			  interactiveGraph.addNode(n1);
-			  allNodeList.add(n1);
+			  if(interactiveGraph.contains(n1)==false)
+			  {
+				  System.out.println("node added: "+name);
+				  interactiveGraph.addNode(n1);
+				  allNodeList.add(n1);
+			  }
 			  interactiveGraph.writeUnlock();
 
 			  //System.out.println("added node "+name);
@@ -636,7 +655,11 @@ import cz.cvut.fit.krizeji1.multicolour.MultiColourRenderer;
 		  Node s=interactiveGraph.getNode(source);
 		  Node t=interactiveGraph.getNode(target);
 		  Edge e=interactiveGraphModel.factory().newEdge(s, t, 1f, Boolean.TRUE);
-		  interactiveGraph.addEdge(e);
+		  if(interactiveGraph.contains(e)==false)
+		  {
+			  System.out.println("edge added: "+source+"->"+target);
+			  interactiveGraph.addEdge(e);
+		  }
 		  interactiveGraph.writeUnlock();
 	  }
 
@@ -646,7 +669,11 @@ import cz.cvut.fit.krizeji1.multicolour.MultiColourRenderer;
 		  Node s=interactiveGraph.getNode(source);
 		  Node t=interactiveGraph.getNode(target);
 		  Edge e=interactiveGraphModel.factory().newEdge(s, t, 0.1f, Boolean.FALSE);
-		  interactiveGraph.addEdge(e);
+		  if(interactiveGraph.contains(e)==false)
+		  {
+			  System.out.println("edge added: "+source+"-"+target);
+			  interactiveGraph.addEdge(e);
+		  }
 		  interactiveGraph.writeUnlock();
 	  }
 
@@ -685,6 +712,7 @@ import cz.cvut.fit.krizeji1.multicolour.MultiColourRenderer;
 
 	  public void restoreNodes()
 	  {
+		  System.out.println("nodesToRestore:"+nodesToRestore.size());
 		  for(int i=0; i<nodesToRestore.size(); i++)
 		  {
 			  Node n=interactiveGraph.getNode(nodesToRestore.getNodeName(i));
@@ -698,6 +726,7 @@ import cz.cvut.fit.krizeji1.multicolour.MultiColourRenderer;
 			  }
 		  }
 		  nodesToRestore=new gephiNode();
+		  refreshApplet();
 	  }
 
 	  public void colorAndResizeSelectedNode(String node, boolean forceRecolor)
@@ -707,6 +736,30 @@ import cz.cvut.fit.krizeji1.multicolour.MultiColourRenderer;
 		  //if(prevSelectedNode==null || prevSelectedNode.getNode().compareTo(node)==0 || forceRecolor==true)
 		  //{
 		  System.out.println("Selected "+node);
+		  //reset the edge selection (if any) of previously selected node 
+		  if(prevSelectedEdge!=null && prevSelectedEdge.size()>0)
+		  {
+			  Node gSource=interactiveGraph.getNode(prevSelectedEdge.get(0).getNode());
+			  Node gTarget=interactiveGraph.getNode(prevSelectedEdge.get(1).getNode());
+
+			  if(gSource!=null && gTarget!=null)
+			  {
+				  interactiveGraph.writeLock();
+				  //reset prev edge sourceNode color and size
+				  gSource.getNodeData().setColor(prevSelectedEdge.get(0).getR(), prevSelectedEdge.get(0).getG(), prevSelectedEdge.get(0).getB());
+				  gSource.getNodeData().setSize(prevSelectedEdge.get(0).getSize());
+				  //reset prev edge targetNode color and size
+				  gTarget.getNodeData().setColor(prevSelectedEdge.get(1).getR(), prevSelectedEdge.get(1).getG(), prevSelectedEdge.get(1).getB());
+				  gTarget.getNodeData().setSize(prevSelectedEdge.get(1).getSize());
+				  //reset prev edge weight to 1
+				  Edge[] edgeArr=new Edge[1];
+				  edgeArr[0]=interactiveGraph.getEdge(gSource, gTarget);
+				  attributeColumnsController.fillEdgesColumnWithValue(edgeArr, attributeModel.getEdgeTable().getColumn(GEPHI_WEIGHT), "1");
+				  prevSelectedEdge=new ArrayList<graphNodeData>();
+				  interactiveGraph.writeUnlock();
+			  }
+		  }
+		  
 		  if(prevSelectedNode!=null)
 		  {
 			  //reset prevSelectedNode if its still present in this current graph.
@@ -745,44 +798,19 @@ import cz.cvut.fit.krizeji1.multicolour.MultiColourRenderer;
 		  System.out.println(node+" position: x="+x+" y="+y+" z="+z);
 		  //interactiveGraphModel.getGraph().getNode(node).getNodeData().setColor(1,1,0);
 		  //remove old pin
-		  if(OLD_PIN_EXISTS==true)
-		  {
-			  Node n1=interactiveGraphModel.getGraph().getNode("*");
-			  if(n1!=null)
-			  {
-				  interactiveGraph.writeLock();
-				  interactiveGraph.removeNode(n1);
-				  interactiveGraph.writeUnlock();
-			  }
-		  }
-		  addANodeAt("*", x, y, 0);
-		  interactiveGraphModel.getGraph().getNode("*").getNodeData().setColor(1,1,0);
-		  OLD_PIN_EXISTS=true;
-
-
-		  //reset the edge selection (if any) of previously selected node 
-		  if(prevSelectedEdge!=null && prevSelectedEdge.size()>0)
-		  {
-			  Node gSource=interactiveGraph.getNode(prevSelectedEdge.get(0).getNode());
-			  Node gTarget=interactiveGraph.getNode(prevSelectedEdge.get(1).getNode());
-
-			  if(gSource!=null && gTarget!=null)
-			  {
-				  interactiveGraph.writeLock();
-				  //reset prev edge sourceNode color and size
-				  gSource.getNodeData().setColor(prevSelectedEdge.get(0).getR(), prevSelectedEdge.get(0).getG(), prevSelectedEdge.get(0).getB());
-				  gSource.getNodeData().setSize(prevSelectedEdge.get(0).getSize());
-				  //reset prev edge targetNode color and size
-				  gTarget.getNodeData().setColor(prevSelectedEdge.get(1).getR(), prevSelectedEdge.get(1).getG(), prevSelectedEdge.get(1).getB());
-				  gTarget.getNodeData().setSize(prevSelectedEdge.get(1).getSize());
-				  //reset prev edge weight to 1
-				  Edge[] edgeArr=new Edge[1];
-				  edgeArr[0]=interactiveGraph.getEdge(gSource, gTarget);
-				  attributeColumnsController.fillEdgesColumnWithValue(edgeArr, attributeModel.getEdgeTable().getColumn(GEPHI_WEIGHT), "1");
-				  prevSelectedEdge=new ArrayList<graphNodeData>();
-				  interactiveGraph.writeUnlock();
-			  }
-		  }
+		  //if(OLD_PIN_EXISTS==true)
+		  //{
+			//  Node n1=interactiveGraphModel.getGraph().getNode("*");
+			 // if(n1!=null)
+			  //{
+			//	  interactiveGraph.writeLock();
+			//	  interactiveGraph.removeNode(n1);
+			//	  interactiveGraph.writeUnlock();
+			//  }
+		  //}
+		  //addANodeAt("*", x, y, 0);
+		  //interactiveGraphModel.getGraph().getNode("*").getNodeData().setColor(1,1,0);
+		  //OLD_PIN_EXISTS=true;
 
 		  refreshApplet();
 		  //}
@@ -845,11 +873,12 @@ import cz.cvut.fit.krizeji1.multicolour.MultiColourRenderer;
 	  {
 		  interactiveGraph.writeLock();
 		  Node n=interactiveGraph.getNode(node);
+		  System.out.println("node n:"+n+" "+node);
 		  nodesToRestore.addNode(node, n.getNodeData().getSize(), n.getNodeData().r(), n.getNodeData().g(), n.getNodeData().b(), n.getNodeData().alpha());
 		  n.getNodeData().setColor(1.0f, 0.0f, 0.0f); //red
 		  n.getNodeData().setAlpha(1.0f); //opaque
 		  //Float size=n.getNodeData().getSize()*2;
-		  n.getNodeData().setSize(50);
+		  n.getNodeData().setSize(30);
 		  interactiveGraph.writeUnlock();
 	  }
 
@@ -861,7 +890,7 @@ import cz.cvut.fit.krizeji1.multicolour.MultiColourRenderer;
 		  n.getNodeData().setColor(0.0f, 1.0f, 0.0f); //green
 		  n.getNodeData().setAlpha(1.0f); //opaque
 		  //Float size=n.getNodeData().getSize()*2;
-		  n.getNodeData().setSize(50);
+		  n.getNodeData().setSize(30);
 		  interactiveGraph.writeUnlock();
 	  }
 
@@ -876,15 +905,18 @@ import cz.cvut.fit.krizeji1.multicolour.MultiColourRenderer;
 
 		  if(nodeValue==null && colorAndResizeType.compareTo("Display Disease Node")==0)
 		  {
+			  restoreNodes();
 			  for(int i=0; i<nodeList.size(); i++)
 			  {
 				  String node=nodeList.get(i);
+				  System.out.println(i+"-> "+node);
 				  setOriginalNode(node);
 				  colorAndResizeDiseaseNode(node);
 			  }
 		  }
 		  else if(nodeValue==null && colorAndResizeType.compareTo("Display Target Node")==0)
 		  {
+			  restoreNodes();
 			  for(int i=0; i<nodeList.size(); i++)
 			  {
 				  String node=nodeList.get(i);
@@ -963,19 +995,39 @@ import cz.cvut.fit.krizeji1.multicolour.MultiColourRenderer;
 			  edgeArr[0]=interactiveGraph.getEdge(gSource, gTarget);
 			  if(edgeArr[0]!=null)
 			  {
+				  System.out.println("colorEdgeDynamics");
 				  interactiveGraph.writeLock();
 				  interactiveGraph.getNode(sourceNode).getNodeData().setColor(0.0f, 1.0f, 1.0f); //cyan
-				  interactiveGraph.getNode(sourceNode).getNodeData().setSize(20.0f);
+				  interactiveGraph.getNode(sourceNode).getNodeData().setSize(25.0f);
 				  interactiveGraph.getNode(targetNode).getNodeData().setColor(0.0f, 1.0f, 1.0f); //cyan
-				  interactiveGraph.getNode(targetNode).getNodeData().setSize(20.0f);
+				  interactiveGraph.getNode(targetNode).getNodeData().setSize(25.0f);
 				  attributeColumnsController.fillEdgesColumnWithValue(edgeArr, attributeModel.getEdgeTable().getColumn(GEPHI_WEIGHT), edgeWeight);
 				  interactiveGraph.writeUnlock();
+				  refreshApplet();
 			  }
 		  }
 	  }
 
 	  public void colorSelectedEdge(String sourceNode, String targetNode, String edgeWeight)
 	  {
+		  if(prevSelectedNode!=null)
+		  {
+			  //reset prevSelectedNode if its still present in this current graph.
+			  if(interactiveGraph.getNode(prevSelectedNode.getNode())!=null)
+			  {
+				  interactiveGraph.writeLock();
+				  if(isCurrentSelectedHallmarkNodes(prevSelectedNode.getNode())==false)
+				  {
+					  interactiveGraph.getNode(prevSelectedNode.getNode()).getNodeData().setColor(prevSelectedNode.getR(), prevSelectedNode.getG(), prevSelectedNode.getB());
+					  interactiveGraph.getNode(prevSelectedNode.getNode()).getNodeData().setSize(prevSelectedNode.getSize());
+					  interactiveGraph.getNode(prevSelectedNode.getNode()).getNodeData().setAlpha(prevSelectedNode.getAlpha());
+				  }
+				  else //currently in view hallmark mode and prevSelectedNode is one of the hallmark nodes being viewed, so reset the alpha value to 0.5f
+					  interactiveGraph.getNode(prevSelectedNode.getNode()).getNodeData().setAlpha(0.5f);
+				  interactiveGraph.writeUnlock();
+			  }
+		  }
+		  
 		  if(prevSelectedEdge==null || prevSelectedEdge.size()==0 || 
 				  !(prevSelectedEdge.get(0).getNode().compareTo(sourceNode)==0 && prevSelectedEdge.get(1).getNode().compareTo(targetNode)==0))
 		  {
@@ -1006,7 +1058,7 @@ import cz.cvut.fit.krizeji1.multicolour.MultiColourRenderer;
 				  }
 			  }
 			  prevSelectedEdge=new ArrayList<graphNodeData>();
-			  if(prevSelectedNode.getNode().compareTo(sourceNode)!=0)
+			  if(prevSelectedNode==null || prevSelectedNode.getNode().compareTo(sourceNode)!=0)
 			  {
 				  source=new graphNodeData(sourceNode, interactiveGraph.getNode(sourceNode).getNodeData().r(), 
 						  interactiveGraph.getNode(sourceNode).getNodeData().g(), interactiveGraph.getNode(sourceNode).getNodeData().b(),
@@ -1015,7 +1067,7 @@ import cz.cvut.fit.krizeji1.multicolour.MultiColourRenderer;
 			  }
 			  else
 				  source=prevSelectedNode;
-			  if(prevSelectedNode.getNode().compareTo(targetNode)!=0)
+			  if(prevSelectedNode==null || prevSelectedNode.getNode().compareTo(targetNode)!=0)
 			  {
 				  target=new graphNodeData(targetNode, interactiveGraph.getNode(targetNode).getNodeData().r(), 
 						  interactiveGraph.getNode(targetNode).getNodeData().g(), interactiveGraph.getNode(targetNode).getNodeData().b(),
@@ -1031,9 +1083,9 @@ import cz.cvut.fit.krizeji1.multicolour.MultiColourRenderer;
 
 			  interactiveGraph.writeLock();
 			  interactiveGraph.getNode(sourceNode).getNodeData().setColor(0.0f, 1.0f, 1.0f); //cyan
-			  interactiveGraph.getNode(sourceNode).getNodeData().setSize(20.0f);
+			  interactiveGraph.getNode(sourceNode).getNodeData().setSize(25.0f);
 			  interactiveGraph.getNode(targetNode).getNodeData().setColor(0.0f, 1.0f, 1.0f); //cyan
-			  interactiveGraph.getNode(targetNode).getNodeData().setSize(20.0f);
+			  interactiveGraph.getNode(targetNode).getNodeData().setSize(25.0f);
 			  gSource=interactiveGraph.getNode(sourceNode);
 			  gTarget=interactiveGraph.getNode(targetNode);
 			  edgeArr[0]=interactiveGraph.getEdge(gSource, gTarget);
@@ -1084,6 +1136,34 @@ import cz.cvut.fit.krizeji1.multicolour.MultiColourRenderer;
 		  }
 	  }
 
+	  public void restoreEdge()
+	  {
+		  //reset the edge selection (if any) of previously selected node 
+		  if(prevSelectedEdge!=null && prevSelectedEdge.size()>0)
+		  {
+			  Node gSource=interactiveGraph.getNode(prevSelectedEdge.get(0).getNode());
+			  Node gTarget=interactiveGraph.getNode(prevSelectedEdge.get(1).getNode());
+
+			  if(gSource!=null && gTarget!=null)
+			  {
+				  interactiveGraph.writeLock();
+				  //reset prev edge sourceNode color and size
+				  gSource.getNodeData().setColor(prevSelectedEdge.get(0).getR(), prevSelectedEdge.get(0).getG(), prevSelectedEdge.get(0).getB());
+				  gSource.getNodeData().setSize(prevSelectedEdge.get(0).getSize());
+				  //reset prev edge targetNode color and size
+				  gTarget.getNodeData().setColor(prevSelectedEdge.get(1).getR(), prevSelectedEdge.get(1).getG(), prevSelectedEdge.get(1).getB());
+				  gTarget.getNodeData().setSize(prevSelectedEdge.get(1).getSize());
+				  //reset prev edge weight to 1
+				  Edge[] edgeArr=new Edge[1];
+				  edgeArr[0]=interactiveGraph.getEdge(gSource, gTarget);
+				  attributeColumnsController.fillEdgesColumnWithValue(edgeArr, attributeModel.getEdgeTable().getColumn(GEPHI_WEIGHT), "1");
+				  prevSelectedEdge=new ArrayList<graphNodeData>();
+				  interactiveGraph.writeUnlock();
+				  refreshApplet();
+			  }
+		  }
+	  }
+	  
 	  public void updateEdgeThickness(String nodeSize)
 	  {
 		  AttributeColumn weights=attributeModel.getEdgeTable().getColumn(GEPHI_WEIGHT);
@@ -1125,7 +1205,7 @@ import cz.cvut.fit.krizeji1.multicolour.MultiColourRenderer;
 			  SET_ORIGINAL_NODE=true;
 		  }
 	  }
-
+	  
 	  public void restoreNode(String node, float r, float g, float b, float alpha, float size, String label)
 	  {
 		  if(interactiveGraph.getNode(node)!=null)
