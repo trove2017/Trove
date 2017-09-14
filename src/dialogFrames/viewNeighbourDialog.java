@@ -9,6 +9,7 @@ import java.awt.Insets;
 import java.awt.MouseInfo;
 import java.awt.Point;
 import java.awt.Robot;
+import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.InputEvent;
@@ -53,20 +54,23 @@ import hallmark.allHallmark;
 
 public class viewNeighbourDialog extends JDialog{
 	private JButton visualizeButton;
-	private JList<String> nodeJList;
-	private JScrollPane nodeScrollPane;
+	private JList<String> nodeJList, directedEdgeJList, undirectedEdgeJList, neighbourJList;
+	private JScrollPane nodeScrollPane, directedEdgeScrollPane, undirectedEdgeScrollPane, neighbourScrollPane;
 	private JPanel graphPanel, hallmarkLegendContent = new JPanel();
 	private JScrollPane vertexLegendScroll = new JScrollPane(hallmarkLegendContent);
 	private JCheckBox proliferationCheckBox, growthRepressorCheckBox, apoptosisCheckBox, replicativeImmortalityCheckBox;
 	private JCheckBox angiogenesisCheckBox, metastasisCheckBox, metabolismCheckBox, immuneDestructionCheckBox;
 	private JCheckBox genomeInstabilityCheckBox, tumorPromotingInflammationCheckBox;
+	private JPanel edgePanel, nodeListPanel, bottomPanel, topPanel;
+	private JCheckBox fullScreenCheckBox;
 	
 	protected final static String VISUALIZE = "Visualize";
-	
+	protected final static String DISPLAY_FULLSCREEN = "Display fullscreen";
+
 	int selectedIndex;
-	
+
 	private stringConstant strConstants=new stringConstant();
-	
+
 	private String HALLMARK_PROLIFERATION_GUI = strConstants.getGUIProliferation();
 	private String HALLMARK_GROWTH_REPRESSOR_GUI = strConstants.getGUIGrowthRepressor();
 	private String HALLMARK_APOPTOSIS_GUI = strConstants.getGUIApoptosis();
@@ -77,7 +81,13 @@ public class viewNeighbourDialog extends JDialog{
 	private String HALLMARK_IMMUNE_DESTRUCTION_GUI = strConstants.getGUIImmuneDestruction();
 	private String HALLMARK_GENOME_INSTABILITY_GUI = strConstants.getGUIGenomeInstability();
 	private String HALLMARK_TUMOR_PROMOTING_INFLAMMATION_GUI = strConstants.getGUITumorPromotingInflammation();
-	
+
+	private String ALL_NEIGHBOUR="All neighbours";
+	private String ALL_EDGES="All Edge(s)";
+	private String EDGES_TO="Edge(s) to ";
+	private String DIRECTED="Directed";
+	private String UNDIRECTED="Undirected";
+
 	private String HALLMARK_PROLIFERATION_DB;
 	private String HALLMARK_GROWTH_REPRESSOR_DB;
 	private String HALLMARK_APOPTOSIS_DB;
@@ -90,12 +100,15 @@ public class viewNeighbourDialog extends JDialog{
 	private String HALLMARK_TUMOR_PROMOTING_INFLAMMATION_DB;
 
 	private String node;
+	private String neighbour;
 	private ArrayList<String> neighbourList;
 	private ArrayList<String> nodeList;
 	private ArrayList<ArrayList<String>> inducedEdges;
+	private ArrayList<ArrayList<String>> directedEdges;
+	private ArrayList<ArrayList<String>> undirectedEdges;
 	private postgreSQL postgreDB;
 	private Gephi_graph gGraph;
-	
+
 	private ProjectController interactivePC;
 	private Project interactiveProject;
 	private Workspace previousWorkspace, currWorkspace;
@@ -103,15 +116,22 @@ public class viewNeighbourDialog extends JDialog{
 	private ProcessingTarget interactiveTarget;
 	private PreviewModel interactivePreviewModel;
 	private MultiColourRenderer multiColorRenderer=new MultiColourRenderer();
-	
-	private ArrayList<String> entireNodeList;
+
+	private ArrayList<String> entireNodeList, directedEdgeList, undirectedEdgeList;
 	private ArrayList<String> selectedHallmarks=new ArrayList<String>();
 	private ArrayList<String> entireHallmarkList=new ArrayList<String>();
-	
+
 	private int osType;
 	//threading
 	VisualizeNetworkWorker visualizeNetworkWorker;
-		
+	
+	static int SCREENWIDTH = Toolkit.getDefaultToolkit().getScreenSize().width;
+	static int SCREENHEIGHT = Toolkit.getDefaultToolkit().getScreenSize().height;
+	private int FRAMEWIDTH=950;
+	private int FRAMEHEIGHT=700;
+	
+	private boolean GEPHIGRAPHREADY=false;
+	
 	public viewNeighbourDialog(ProjectController pc, Project project, Workspace oldWorkspace, Workspace newWorkspace, String n, 
 			ArrayList<String> allNodeArrList, postgreSQL dB, ArrayList<String> hallmarkSelected, int sysOS)
 	{
@@ -121,7 +141,7 @@ public class viewNeighbourDialog extends JDialog{
 		postgreDB=dB;
 		selectedHallmarks=hallmarkSelected;
 		osType=sysOS;
-		
+
 		HALLMARK_PROLIFERATION_DB=strConstants.getDBProliferation();
 		HALLMARK_GROWTH_REPRESSOR_DB=strConstants.getDBGrowthRepressor();
 		HALLMARK_APOPTOSIS_DB=strConstants.getDBApoptosis();
@@ -132,7 +152,7 @@ public class viewNeighbourDialog extends JDialog{
 		HALLMARK_IMMUNE_DESTRUCTION_DB=strConstants.getDBImmuneDestruction();
 		HALLMARK_GENOME_INSTABILITY_DB=strConstants.getDBGenomeInstability();
 		HALLMARK_TUMOR_PROMOTING_INFLAMMATION_DB=strConstants.getDBTumorPromotingInflammation();
-		
+
 		entireHallmarkList.add(HALLMARK_PROLIFERATION_DB);
 		entireHallmarkList.add(HALLMARK_GROWTH_REPRESSOR_DB);
 		entireHallmarkList.add(HALLMARK_APOPTOSIS_DB);
@@ -143,7 +163,7 @@ public class viewNeighbourDialog extends JDialog{
 		entireHallmarkList.add(HALLMARK_IMMUNE_DESTRUCTION_DB);
 		entireHallmarkList.add(HALLMARK_GENOME_INSTABILITY_DB);
 		entireHallmarkList.add(HALLMARK_TUMOR_PROMOTING_INFLAMMATION_DB);
-		
+
 		interactivePC=pc;
 		interactiveProject=project;
 		previousWorkspace=oldWorkspace;
@@ -152,21 +172,21 @@ public class viewNeighbourDialog extends JDialog{
 		//interactivePreviewController=Lookup.getDefault().lookup(PreviewController.class);
 		//interactivePreviewModel = interactivePreviewController.getModel(interactiveWorkspace);
 		//interactiveTarget = (ProcessingTarget) interactivePreviewController.getRenderTarget(RenderTarget.PROCESSING_TARGET);
-		  
+
 		interactivePreviewController = Lookup.getDefault().lookup(PreviewController.class);
 		interactivePreviewModel=interactivePreviewController.getModel(interactivePC.getCurrentWorkspace());
 		ManagedRenderer [] mr = interactivePreviewModel.getManagedRenderers();
 		ManagedRenderer [] mr2 = Arrays.copyOf(mr, mr.length+1);
 		mr2[mr.length] = new ManagedRenderer(multiColorRenderer, true);
 		interactivePreviewModel.setManagedRenderers(mr2);
-		  
+
 		//interactivePreviewController=Lookup.getDefault().lookup(PreviewController.class);
 		//interactivePreviewModel = interactivePreviewController.getModel(interactiveWorkspace);
 		//interactiveTarget = (ProcessingTarget) interactivePreviewController.getRenderTarget(RenderTarget.PROCESSING_TARGET);
-		  
-		
+
+
 		//gGraph=new Gephi_graph(interactivePC, interactiveProject, currWorkspace); //for visualization
-		
+
 		//gGraph=new Gephi_graph();
 		nodeList=new ArrayList<String>();
 		nodeList.add(node);
@@ -178,19 +198,20 @@ public class viewNeighbourDialog extends JDialog{
 
 		//set JDialog properties
 		setTitle("Neighbour(s) of "+n);
-		setSize(950,700);
+		setSize(FRAMEWIDTH,FRAMEHEIGHT);
 		setLocationRelativeTo(null);
 		setResizable(false);
 		setModal(true);
 
 		//configure components in JDialog
 		initializeComponents();
-		
+
 		gGraph=new Gephi_graph(interactivePC, interactiveProject, currWorkspace, interactivePreviewModel); //for visualization
 		createGraph();
 		gGraph.configureInteractivePreview();
 		gGraph.visualizeGraph(graphPanel);
 		gGraph.colorAndResizeSelectedNode(node, true);
+		GEPHIGRAPHREADY=true;
 	}
 
 	private String suggestGephiNodeSizeToUse(int size) 
@@ -245,9 +266,38 @@ public class viewNeighbourDialog extends JDialog{
 		public void actionPerformed(ActionEvent act) {
 			if (act.getActionCommand() == VISUALIZE)
 				visualize_actionPerformed();
+			if (act.getActionCommand() == DISPLAY_FULLSCREEN)
+				displayFullscreen_actionPerformed();
 		}
 	};
 
+	private void displayFullscreen_actionPerformed()
+	{
+		if(fullScreenCheckBox.isSelected()==true)
+		{
+			graphPanel.setPreferredSize(new Dimension(SCREENWIDTH-200, SCREENHEIGHT-150));
+			nodeListPanel.setPreferredSize(new Dimension(180, SCREENHEIGHT-300));
+			bottomPanel.setPreferredSize(new Dimension(SCREENWIDTH, 150));
+			topPanel.setPreferredSize(new Dimension(SCREENWIDTH, SCREENHEIGHT-150));
+			setSize(SCREENWIDTH,SCREENHEIGHT);
+		}
+		else
+		{
+			graphPanel.setPreferredSize(new Dimension(600, 540));
+			nodeListPanel.setPreferredSize(new Dimension(180, 550));
+			bottomPanel.setPreferredSize(new Dimension(900, 100));
+			topPanel.setPreferredSize(new Dimension(790, 540));
+			setSize(FRAMEWIDTH,FRAMEHEIGHT);
+		}
+		if(GEPHIGRAPHREADY)
+			gGraph.resizeGraph(graphPanel);
+		graphPanel.revalidate();
+		nodeListPanel.revalidate();
+		topPanel.revalidate();
+		bottomPanel.revalidate();
+		revalidate();
+	}
+	
 	private void visualize_actionPerformed() 
 	{
 		ArrayList<String> reapplySelectedHallmark=new ArrayList<String>();
@@ -272,7 +322,7 @@ public class viewNeighbourDialog extends JDialog{
 		if(tumorPromotingInflammationCheckBox.isSelected()==true)
 			reapplySelectedHallmark.add(HALLMARK_TUMOR_PROMOTING_INFLAMMATION_DB);
 		allHallmark hallmarkNodeList=postgreDB.getHallmark_hallmark();
-		
+
 		visualizeNetworkWorker=new VisualizeNetworkWorker();
 		ArrayList<Object> param=new ArrayList<Object>();
 		param.add(gGraph);
@@ -280,6 +330,174 @@ public class viewNeighbourDialog extends JDialog{
 		param.add(reapplySelectedHallmark);
 		param.add(graphPanel);
 		visualizeNetworkWorker.Start(VISUALIZE, param);
+	}
+
+	private void neighbour_valueChanged(ListSelectionEvent e) 
+	{
+		if (!e.getValueIsAdjusting()) 
+		{
+			if(neighbourJList.getSelectedValue()!=null)
+			{
+				int selectedIndex = neighbourJList.getSelectedIndex();
+				ArrayList<String> nodeList=new ArrayList<String>();
+				if(selectedIndex==0)
+				{
+					directedEdges=new ArrayList<ArrayList<String>>();
+					undirectedEdges=new ArrayList<ArrayList<String>>();
+					directedEdgeList=new ArrayList<String>();
+					undirectedEdgeList=new ArrayList<String>();
+					for(int i=0; i<inducedEdges.size(); i++)
+					{
+						ArrayList<String> edge=inducedEdges.get(i);
+						String source=edge.get(0);
+						String target=edge.get(1);
+						String edgeType=edge.get(2);
+						if(edgeType.compareTo("Phy")==0)//undirected edge
+						{
+							if(undirectedEdges.contains(edge)==false)
+							{
+								undirectedEdges.add(edge);
+								undirectedEdgeList.add(source+"--"+target);
+							}
+						}
+						else
+						{
+							if(directedEdges.contains(edge)==false)
+							{
+								directedEdges.add(edge);
+								if(edgeType.compareTo("Pos")==0)
+									directedEdgeList.add(source+"->"+target);
+								else
+									directedEdgeList.add(source+"-|"+target);
+							}
+						}
+					}
+					String[] formattedNodeList=new String[directedEdgeList.size()];
+					formattedNodeList = directedEdgeList.toArray(formattedNodeList);
+					directedEdgeJList.setListData(formattedNodeList);
+					//directedEdgeJList.setSelectedIndex(0);
+					directedEdgeScrollPane.setViewportView(directedEdgeJList);
+					formattedNodeList=new String[undirectedEdgeList.size()];
+					formattedNodeList = undirectedEdgeList.toArray(formattedNodeList);
+					undirectedEdgeJList.setListData(formattedNodeList);
+					//undirectedEdgeJList.setSelectedIndex(0);
+					undirectedEdgeScrollPane.setViewportView(undirectedEdgeJList);
+					
+					edgePanel.setBorder(BorderFactory.createTitledBorder(BorderFactory
+					        .createEtchedBorder(EtchedBorder.LOWERED), ALL_EDGES));
+					gGraph.restoreNodes();
+					gGraph.restoreEdge();
+				}
+				else if(selectedIndex!=-1)
+				{
+					neighbour=neighbourJList.getSelectedValue().toString();
+
+					//2. update directed and undirected edge list
+					edgePanel.setBorder(BorderFactory.createTitledBorder(BorderFactory
+					        .createEtchedBorder(EtchedBorder.LOWERED), EDGES_TO+neighbour));
+					
+					directedEdges=new ArrayList<ArrayList<String>>();
+					undirectedEdges=new ArrayList<ArrayList<String>>();
+					directedEdgeList=new ArrayList<String>();
+					undirectedEdgeList=new ArrayList<String>();
+					for(int i=0; i<inducedEdges.size(); i++)
+					{
+						ArrayList<String> edge=inducedEdges.get(i);
+						String source=edge.get(0);
+						String target=edge.get(1);
+						String edgeType=edge.get(2);
+						if((source.compareTo(node)==0 && target.compareTo(neighbour)==0)||
+								(target.compareTo(node)==0 && source.compareTo(neighbour)==0))
+						{
+							if(edgeType.compareTo("Phy")==0)//undirected edge
+							{
+								if(undirectedEdges.contains(edge)==false)
+								{
+									undirectedEdges.add(edge);
+									undirectedEdgeList.add(source+"--"+target);
+								}
+							}
+							else
+							{
+								if(directedEdges.contains(edge)==false)
+								{
+									directedEdges.add(edge);
+									if(edgeType.compareTo("Pos")==0)
+										directedEdgeList.add(source+"->"+target);
+									else
+										directedEdgeList.add(source+"-|"+target);
+								}
+							}
+						}
+					}
+					String[] formattedNodeList=new String[directedEdgeList.size()];
+					formattedNodeList = directedEdgeList.toArray(formattedNodeList);
+					directedEdgeJList.setListData(formattedNodeList);
+					//directedEdgeJList.setSelectedIndex(0);
+					directedEdgeScrollPane.setViewportView(directedEdgeJList);
+					formattedNodeList=new String[undirectedEdgeList.size()];
+					formattedNodeList = undirectedEdgeList.toArray(formattedNodeList);
+					undirectedEdgeJList.setListData(formattedNodeList);
+					//undirectedEdgeJList.setSelectedIndex(0);
+					undirectedEdgeScrollPane.setViewportView(undirectedEdgeJList);
+					gGraph.restoreNodes();
+					gGraph.restoreEdge();
+					nodeList.add(neighbour);
+					gGraph.colorAndResizeNodeSet(nodeList, null, "Display Disease Node");
+				}
+			}
+			displayFullscreen_actionPerformed();
+		}
+	}
+
+	private void undirectedEdge_valueChanged(ListSelectionEvent e) 
+	{
+		if (!e.getValueIsAdjusting()) 
+		{
+			if(undirectedEdgeJList.getSelectedValue()!=null)
+			{
+				int selectedIndex = undirectedEdgeJList.getSelectedIndex();
+				ArrayList<String> inducedEdge=undirectedEdges.get(selectedIndex);
+				String source=inducedEdge.get(0);
+				String target=inducedEdge.get(1);
+				gGraph.restoreNodes();
+				gGraph.restoreEdge();
+				if(selectedIndex!=-1)
+				{
+					//uncolor all previous hallmarks
+					gGraph.resetHallmarkNode();
+					//color selected hallmarks
+					allHallmark hallmarkNodeList=postgreDB.getHallmark_hallmark();
+					gGraph.colorAndResizeHallmarkNode(hallmarkNodeList, selectedHallmarks, true);
+					gGraph.colorSelectedEdge(source, target, "10");
+				}
+			}
+		}
+	}
+
+	private void directedEdge_valueChanged(ListSelectionEvent e) 
+	{
+		if (!e.getValueIsAdjusting()) 
+		{
+			if(directedEdgeJList.getSelectedValue()!=null)
+			{
+				int selectedIndex = directedEdgeJList.getSelectedIndex();
+				ArrayList<String> inducedEdge=directedEdges.get(selectedIndex);
+				String source=inducedEdge.get(0);
+				String target=inducedEdge.get(1);
+				gGraph.restoreNodes();
+				gGraph.restoreEdge();
+				if(selectedIndex!=-1)
+				{
+					//uncolor all previous hallmarks
+					gGraph.resetHallmarkNode();
+					//color selected hallmarks
+					allHallmark hallmarkNodeList=postgreDB.getHallmark_hallmark();
+					gGraph.colorAndResizeHallmarkNode(hallmarkNodeList, selectedHallmarks, true);
+					gGraph.colorSelectedEdge(source, target, "10");
+				}
+			}
+		}
 	}
 
 	private void nodeList_valueChanged(ListSelectionEvent e) 
@@ -296,19 +514,74 @@ public class viewNeighbourDialog extends JDialog{
 					setTitle("Neighbour(s) of "+node);
 					nodeList=new ArrayList<String>();
 					nodeList.add(node);
+					nodeJList.setSelectedIndex(entireNodeList.indexOf(node));
+					nodeScrollPane.setViewportView(nodeJList);
+
 					neighbourList=postgreDB.getNetworkEdge_neighbourNameOfNode(node);
 					neighbourList.retainAll(entireNodeList);
 					for(int i=0; i<neighbourList.size(); i++)
 						nodeList.add(neighbourList.get(i));
 					inducedEdges=postgreDB.getNetworkEdge_inducedEdges(nodeList);
 					//graphPanel.setLocation(new Point(5,5));
-					if(osType==2)//MAC_OS
-						graphPanel.setPreferredSize(new Dimension(800, 540));
-					else
-						graphPanel.setPreferredSize(new Dimension(600, 540));
+					//if(osType==2)//MAC_OS
+					//	graphPanel.setPreferredSize(new Dimension(800, 540));
+					//else
+					//	graphPanel.setPreferredSize(new Dimension(600, 540));
 					createGraph();
 					gGraph.visualizeGraphNoSetLocation(graphPanel, false);
 					gGraph.colorAndResizeSelectedNode(node, true);
+					//1. update neighbour list 
+					neighbourList.remove(node);
+					neighbourList.add(0, ALL_NEIGHBOUR);
+					String[] formattedNodeList=new String[neighbourList.size()];
+					formattedNodeList = neighbourList.toArray(formattedNodeList);
+					neighbourJList.setListData(formattedNodeList);
+					neighbourJList.setSelectedIndex(0);
+					neighbourScrollPane.setViewportView(neighbourJList);
+					//2. update directed and undirected edge list
+					directedEdges=new ArrayList<ArrayList<String>>();
+					undirectedEdges=new ArrayList<ArrayList<String>>();
+					directedEdgeList=new ArrayList<String>();
+					undirectedEdgeList=new ArrayList<String>();
+					for(int i=0; i<inducedEdges.size(); i++)
+					{
+						ArrayList<String> edge=inducedEdges.get(i);
+						String source=edge.get(0);
+						String target=edge.get(1);
+						String edgeType=edge.get(2);
+						if(edgeType.compareTo("Phy")==0)//undirected edge
+						{
+							if(undirectedEdges.contains(edge)==false)
+							{
+								undirectedEdges.add(edge);
+								undirectedEdgeList.add(source+"--"+target);
+							}
+						}
+						else
+						{
+							if(directedEdges.contains(edge)==false)
+							{
+								directedEdges.add(edge);
+								if(edgeType.compareTo("Pos")==0)
+									directedEdgeList.add(source+"->"+target);
+								else
+									directedEdgeList.add(source+"-|"+target);
+							}
+						}
+					}
+					formattedNodeList=new String[directedEdgeList.size()];
+					formattedNodeList = directedEdgeList.toArray(formattedNodeList);
+					directedEdgeJList.setListData(formattedNodeList);
+					//directedEdgeJList.setSelectedIndex(0);
+					directedEdgeScrollPane.setViewportView(directedEdgeJList);
+					formattedNodeList=new String[undirectedEdgeList.size()];
+					formattedNodeList = undirectedEdgeList.toArray(formattedNodeList);
+					undirectedEdgeJList.setListData(formattedNodeList);
+					//undirectedEdgeJList.setSelectedIndex(0);
+					undirectedEdgeScrollPane.setViewportView(undirectedEdgeJList);
+					
+					edgePanel.setBorder(BorderFactory.createTitledBorder(BorderFactory
+					        .createEtchedBorder(EtchedBorder.LOWERED), ALL_EDGES));
 				}
 			}
 		}
@@ -327,7 +600,7 @@ public class viewNeighbourDialog extends JDialog{
 		addVertexLegendLabelColor(HALLMARK_GENOME_INSTABILITY_GUI, new Color(0x008080));
 		addVertexLegendLabelColor(HALLMARK_TUMOR_PROMOTING_INFLAMMATION_GUI, new Color(0xF5DEB3));
 	}
-	
+
 	private void addVertexLegendLabelColor(String label, Color labelColor) 
 	{
 		JLabel legendLabel=new JLabel(label);
@@ -342,25 +615,33 @@ public class viewNeighbourDialog extends JDialog{
 
 		hallmarkLegendContent.add(legendLabelColorPanel);
 	}
-	
+
 	private void initializeComponents()
 	{
-		JPanel topPanel=new JPanel();
+		topPanel=new JPanel();
 		topPanel.setLayout(new FlowLayout(FlowLayout.LEFT));
 		topPanel.setPreferredSize(new Dimension(790, 540));
-		
+
 		graphPanel=new JPanel();
 		graphPanel.setBorder(BorderFactory.createEtchedBorder(EtchedBorder.LOWERED));
 		graphPanel.setBackground(Color.BLACK);
 		//graphPanel.setPreferredSize(new Dimension(600, 540));
 		graphPanel.setPreferredSize(new Dimension(600, 540));
-	
-		JPanel nodeListPanel=new JPanel();
+
+		nodeListPanel=new JPanel();
 		nodeListPanel.setLayout(new BoxLayout(nodeListPanel, BoxLayout.Y_AXIS));
-		nodeListPanel.setPreferredSize(new Dimension(150, 550));
+		nodeListPanel.setPreferredSize(new Dimension(180, 550));
+		
+		JPanel fullScreenCheckBoxPanel=new JPanel();
+		fullScreenCheckBoxPanel.setLayout(new FlowLayout(FlowLayout.LEFT));
+		fullScreenCheckBox=new JCheckBox(DISPLAY_FULLSCREEN, false);
+		fullScreenCheckBoxPanel.add(fullScreenCheckBox);
+		fullScreenCheckBox.setActionCommand(DISPLAY_FULLSCREEN);
+		fullScreenCheckBox.addActionListener(actionListener);
+		
 		JPanel nodeListLabelPanel=new JPanel();
 		nodeListLabelPanel.setLayout(new FlowLayout(FlowLayout.LEFT));
-		nodeListLabelPanel.setPreferredSize(new Dimension(150, 20));
+		nodeListLabelPanel.setPreferredSize(new Dimension(180, 20));
 		JLabel nodeListLabel=new JLabel("Node List:");
 		nodeListLabelPanel.add(nodeListLabel);
 		String[] formattedNodeList=new String[entireNodeList.size()];
@@ -370,26 +651,136 @@ public class viewNeighbourDialog extends JDialog{
 		nodeScrollPane = new JScrollPane(nodeJList);
 		nodeJList.setSelectionMode(ListSelectionModel.SINGLE_INTERVAL_SELECTION);
 		nodeJList.setSelectedIndex(entireNodeList.indexOf(node));
+		nodeJList.ensureIndexIsVisible(nodeJList.getSelectedIndex());
 		nodeJList.addListSelectionListener(new ListSelectionListener() 
 		{
 			public void valueChanged(ListSelectionEvent e){nodeList_valueChanged(e);}
 		});
 		nodeScrollPane.setViewportView(nodeJList);
-		nodeScrollPane.setPreferredSize(new Dimension(150, 500));
+		nodeScrollPane.setPreferredSize(new Dimension(180, 180));
 		nodeScrollPane.setHorizontalScrollBarPolicy(javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+
+		JPanel neighbourLabelPanel=new JPanel();
+		neighbourLabelPanel.setLayout(new FlowLayout(FlowLayout.LEFT));
+		neighbourLabelPanel.setPreferredSize(new Dimension(180, 20));
+		JLabel neighbourLabel=new JLabel("Neighbour(s):");
+		neighbourLabelPanel.add(neighbourLabel);
+		//neighbourList=new ArrayList<String>();
+		neighbourList.remove(node);
+		neighbourList.add(0, ALL_NEIGHBOUR);
+		formattedNodeList=new String[neighbourList.size()];
+		formattedNodeList = neighbourList.toArray(formattedNodeList);
+		neighbourJList=new JList<String>();
+		neighbourJList.setListData(formattedNodeList);
+		neighbourJList.setSelectedIndex(0);
+		neighbourScrollPane = new JScrollPane(neighbourJList);
+		neighbourJList.setSelectionMode(ListSelectionModel.SINGLE_INTERVAL_SELECTION);
+		neighbourJList.addListSelectionListener(new ListSelectionListener() 
+		{
+			public void valueChanged(ListSelectionEvent e){neighbour_valueChanged(e);}
+		});
+		neighbourScrollPane.setViewportView(neighbourJList);
+		neighbourScrollPane.setPreferredSize(new Dimension(180, 180));
+		neighbourScrollPane.setHorizontalScrollBarPolicy(javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+
+		directedEdges=new ArrayList<ArrayList<String>>();
+		undirectedEdges=new ArrayList<ArrayList<String>>();
+		directedEdgeList=new ArrayList<String>();
+		undirectedEdgeList=new ArrayList<String>();
+		for(int i=0; i<inducedEdges.size(); i++)
+		{
+			ArrayList<String> edge=inducedEdges.get(i);
+			String source=edge.get(0);
+			String target=edge.get(1);
+			String edgeType=edge.get(2);
+			if(edgeType.compareTo("Phy")==0)//undirected edge
+			{
+				if(undirectedEdges.contains(edge)==false)
+				{
+					undirectedEdges.add(edge);
+					undirectedEdgeList.add(source+"--"+target);
+				}
+			}
+			else
+			{
+				if(directedEdges.contains(edge)==false)
+				{
+					directedEdges.add(edge);
+					if(edgeType.compareTo("Pos")==0)
+						directedEdgeList.add(source+"->"+target);
+					else
+						directedEdgeList.add(source+"-|"+target);
+				}
+			}
+		}
+		System.out.println("directedEdge:"+directedEdgeList.toString());
+		System.out.println("undirectedEdge:"+undirectedEdgeList.toString());
+
+		edgePanel=new JPanel();
+		edgePanel.setLayout(new BoxLayout(edgePanel, BoxLayout.Y_AXIS));
+		edgePanel.setBorder(BorderFactory.createTitledBorder(BorderFactory
+		        .createEtchedBorder(EtchedBorder.LOWERED), ALL_EDGES));
+		
+		JPanel directedEdgeLabelPanel=new JPanel();
+		directedEdgeLabelPanel.setLayout(new FlowLayout(FlowLayout.LEFT));
+		directedEdgeLabelPanel.setPreferredSize(new Dimension(180, 20));
+		JLabel directedEdgeLabel=new JLabel(DIRECTED);
+		directedEdgeLabelPanel.add(directedEdgeLabel);
+		formattedNodeList=new String[directedEdgeList.size()];
+		formattedNodeList = directedEdgeList.toArray(formattedNodeList);
+		directedEdgeJList=new JList<String>();
+		directedEdgeJList.setListData(formattedNodeList);
+		directedEdgeScrollPane = new JScrollPane(directedEdgeJList);
+		directedEdgeJList.setSelectionMode(ListSelectionModel.SINGLE_INTERVAL_SELECTION);
+		directedEdgeJList.addListSelectionListener(new ListSelectionListener() 
+		{
+			public void valueChanged(ListSelectionEvent e){directedEdge_valueChanged(e);}
+		});
+		directedEdgeScrollPane.setViewportView(directedEdgeJList);
+		directedEdgeScrollPane.setPreferredSize(new Dimension(180, 180));
+		directedEdgeScrollPane.setHorizontalScrollBarPolicy(javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+
+		JPanel undirectedEdgeLabelPanel=new JPanel();
+		undirectedEdgeLabelPanel.setLayout(new FlowLayout(FlowLayout.LEFT));
+		undirectedEdgeLabelPanel.setPreferredSize(new Dimension(180, 20));
+		JLabel undirectedEdgeLabel=new JLabel(UNDIRECTED);
+		undirectedEdgeLabelPanel.add(undirectedEdgeLabel);
+		formattedNodeList=new String[undirectedEdgeList.size()];
+		formattedNodeList = undirectedEdgeList.toArray(formattedNodeList);
+		undirectedEdgeJList=new JList<String>();
+		undirectedEdgeJList.setListData(formattedNodeList);
+		undirectedEdgeScrollPane = new JScrollPane(undirectedEdgeJList);
+		undirectedEdgeJList.setSelectionMode(ListSelectionModel.SINGLE_INTERVAL_SELECTION);
+		undirectedEdgeJList.addListSelectionListener(new ListSelectionListener() 
+		{
+			public void valueChanged(ListSelectionEvent e){undirectedEdge_valueChanged(e);}
+		});
+		undirectedEdgeScrollPane.setViewportView(undirectedEdgeJList);
+		undirectedEdgeScrollPane.setPreferredSize(new Dimension(180, 180));
+		undirectedEdgeScrollPane.setHorizontalScrollBarPolicy(javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+
+		edgePanel.add(directedEdgeLabelPanel);
+		edgePanel.add(directedEdgeScrollPane);
+		edgePanel.add(undirectedEdgeLabelPanel);
+		edgePanel.add(undirectedEdgeScrollPane);
+		
+		nodeListPanel.add(fullScreenCheckBoxPanel);
 		nodeListPanel.add(nodeListLabelPanel);
 		nodeListPanel.add(nodeScrollPane);
-				
+		nodeListPanel.add(neighbourLabelPanel);
+		nodeListPanel.add(neighbourScrollPane);
+		nodeListPanel.add(edgePanel);
+
 		topPanel.add(graphPanel);
 		topPanel.add(nodeListPanel);
-		
-		
-		
-		JPanel bottomPanel=new JPanel();
+
+
+
+		bottomPanel=new JPanel();
 		//bottomPanel.setBorder(BorderFactory.createEtchedBorder(EtchedBorder.LOWERED));
 		bottomPanel.setLayout(new FlowLayout(FlowLayout.LEFT));
 		bottomPanel.setPreferredSize(new Dimension(900, 100));
-		
+
 		JPanel bottomLeftPanel=new JPanel();
 		bottomLeftPanel.setLayout(new BoxLayout(bottomLeftPanel, BoxLayout.Y_AXIS));
 		bottomLeftPanel.setPreferredSize(new Dimension(250, 100));
@@ -402,15 +793,15 @@ public class viewNeighbourDialog extends JDialog{
 		addVertexLegendHallmarkColor();
 		bottomLeftPanel.add(hallmarkLegendLabelPanel);
 		bottomLeftPanel.add(vertexLegendScroll);
-		
+
 		JPanel bottomRightPanel=new JPanel();
 		bottomRightPanel.setLayout(new BoxLayout(bottomRightPanel, BoxLayout.Y_AXIS));
 		bottomRightPanel.setPreferredSize(new Dimension(600, 100));
-		
+
 		JPanel checkBoxesTopPanel=new JPanel();
 		checkBoxesTopPanel.setLayout(new FlowLayout(FlowLayout.LEFT));
 		checkBoxesTopPanel.setPreferredSize(new Dimension(600, 20));
-		
+
 		JPanel proliferationPanel=new JPanel();
 		proliferationPanel.setLayout(new FlowLayout(FlowLayout.LEFT));
 		if(selectedHallmarks.contains(entireHallmarkList.get(0))==true)
@@ -446,17 +837,17 @@ public class viewNeighbourDialog extends JDialog{
 		else
 			angiogenesisCheckBox=new JCheckBox("Hallmark 5", false);
 		angiogenesisPanel.add(angiogenesisCheckBox);
-		
+
 		checkBoxesTopPanel.add(proliferationPanel);
 		checkBoxesTopPanel.add(growthRepressorPanel);
 		checkBoxesTopPanel.add(apoptosisPanel);
 		checkBoxesTopPanel.add(replicativeImmortalityPanel);
 		checkBoxesTopPanel.add(angiogenesisPanel);
-		
+
 		JPanel checkBoxesBottomPanel=new JPanel();
 		checkBoxesBottomPanel.setLayout(new FlowLayout(FlowLayout.LEFT));
 		checkBoxesBottomPanel.setPreferredSize(new Dimension(600, 20));
-		
+
 		JPanel metastasisPanel=new JPanel();
 		metastasisPanel.setLayout(new FlowLayout(FlowLayout.LEFT));
 		if(selectedHallmarks.contains(entireHallmarkList.get(5))==true)
@@ -492,13 +883,13 @@ public class viewNeighbourDialog extends JDialog{
 		else
 			tumorPromotingInflammationCheckBox=new JCheckBox("Hallmark 10", false);
 		tumorPromotingInflammationPanel.add(tumorPromotingInflammationCheckBox);
-		
+
 		checkBoxesBottomPanel.add(metastasisPanel);
 		checkBoxesBottomPanel.add(metabolismPanel);
 		checkBoxesBottomPanel.add(immuneDestructionPanel);
 		checkBoxesBottomPanel.add(genomeInstabilityPanel);
 		checkBoxesBottomPanel.add(tumorPromotingInflammationPanel);
-		
+
 		JPanel buttonPanel=new JPanel();
 		buttonPanel.setLayout(new FlowLayout(FlowLayout.RIGHT));
 		visualizeButton = new JButton();
@@ -507,31 +898,31 @@ public class viewNeighbourDialog extends JDialog{
 		visualizeButton.setActionCommand(VISUALIZE);
 		visualizeButton.addActionListener(actionListener);
 		buttonPanel.add(visualizeButton);
-		
+
 		bottomRightPanel.add(checkBoxesTopPanel);
 		bottomRightPanel.add(checkBoxesBottomPanel);
 		bottomRightPanel.add(buttonPanel);
-		
+
 		bottomPanel.add(bottomLeftPanel);
 		bottomPanel.add(bottomRightPanel);
-		
 
 		addWindowListener(new WindowAdapter()
-        {
-            @Override
-            public void windowClosing(WindowEvent e)
-            {
-                System.out.println("Closed. switch workspace back");
-                interactivePC.openWorkspace(previousWorkspace); 
-                setVisible(false);
-            }
-        });
+		{
+			@Override
+			public void windowClosing(WindowEvent e)
+			{
+				System.out.println("Closed. switch workspace back");
+				interactivePC.openWorkspace(previousWorkspace); 
+				setVisible(false);
+			}
+		});
 		setLayout(new BoxLayout(this.getContentPane(), BoxLayout.Y_AXIS));
 		add(topPanel);
 		add(bottomPanel);
 		setLocationByPlatform(true);
+		//revalidate();
 	}
-	
+
 	private void sendVirtualClickToRefreshGraphDisplay() 
 	{
 		System.out.println("send virtual click");
@@ -548,7 +939,7 @@ public class viewNeighbourDialog extends JDialog{
 			e.printStackTrace();
 		}
 	}
-	
+
 	class VisualizeNetworkWorker
 	{
 		Thread worker;
@@ -567,7 +958,7 @@ public class viewNeighbourDialog extends JDialog{
 						allHallmark hallmarkNodeList=(allHallmark)paramList.get(1);
 						ArrayList<String> hallmarkMask=(ArrayList<String>)paramList.get(2);
 						JPanel gPanel=(JPanel)paramList.get(3);
-						
+
 						//uncolor all previous hallmarks
 						graph.resetHallmarkNode();
 						//color selected hallmarks
