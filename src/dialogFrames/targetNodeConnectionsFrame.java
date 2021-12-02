@@ -291,7 +291,8 @@ public class targetNodeConnectionsFrame extends JDialog{
 			ArrayList<String> nodePair=new ArrayList<String>();
 			nodePair.add(nodePairList.get(i).getStringArrayAtIndex(0));
 			nodePair.add(nodePairList.get(i).getStringArrayAtIndex(1));
-			ArrayList<String> thisConnection=originalJGraph.findConnectionOfCurrentGraph(s, nodePair);
+			//ArrayList<String> thisConnection=originalJGraph.findConnectionOfCurrentGraph(s, nodePair);
+			ArrayList<String> thisConnection=originalJGraph.findConnectionOfCurrentGraphNodeList(s, nodePair);
 			for(int j=0; j<thisConnection.size(); j++)
 			{
 				if(connectingNode.contains(thisConnection.get(j))==false)
@@ -508,7 +509,8 @@ public class targetNodeConnectionsFrame extends JDialog{
 		ArrayList<String> nodePair=new ArrayList<String>();
 		nodePair.add(fromNode);
 		nodePair.add(toNode);
-		ArrayList<String> thisConnection=originalJGraph.findConnectionOfCurrentGraph(statusLabel, nodePair);
+		//ArrayList<String> thisConnection=originalJGraph.findConnectionOfCurrentGraph(statusLabel, nodePair);
+		ArrayList<String> thisConnection=originalJGraph.findConnectionOfCurrentGraphNodeList(statusLabel, nodePair);
 
 		for(Node n: nGraph.getNodes())
 		{
